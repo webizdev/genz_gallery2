@@ -7,9 +7,27 @@ $action = $_GET['action'] ?? '';
 switch ($action) {
     case 'list':
         try {
-            $stmt = $pdo->query("SELECT * FROM photos ORDER BY id DESC");
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+            $offset = ($page - 1) * $limit;
+
+            // Get total count
+            $countStmt = $pdo->query("SELECT COUNT(*) FROM photos");
+            $total = $countStmt->fetchColumn();
+
+            // Get paginated results
+            $stmt = $pdo->prepare("SELECT * FROM photos ORDER BY id DESC LIMIT :limit OFFSET :offset");
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
             $photos = $stmt->fetchAll();
-            echo json_encode($photos);
+            echo json_encode([
+                'photos' => $photos,
+                'total' => $total,
+                'page' => $page,
+                'pages' => ceil($total / $limit)
+            ]);
         } catch (Exception $e) {
             echo json_encode(['error' => $e->getMessage()]);
         }
