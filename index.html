@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genz Syar'ie Gallery | Self-Host Image Suite</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- API Backend Bridge -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --bg-primary: #ffffff;
+            --accent: #000000;
+            --gray-soft: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: #111;
+            scroll-behavior: smooth;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .drop-zone {
+            border: 2px dashed #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover, .drop-zone.active {
+            border-color: var(--accent);
+            background: var(--gray-soft);
+        }
+
+        .image-card {
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease;
+        }
+
+        .image-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            height: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #eee;
+            border-radius: 10px;
+        }
+
+        #uploadPreview {
+            max-height: 150px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 glass-nav">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-cloud text-white text-xs"></i>
+                </div>
+                <div class="flex flex-col">
+                    <h1 class="text-lg md:text-xl font-bold tracking-tight leading-tight">Genz Syar'ie <span class="font-light">Gallery</span></h1>
+                    <p class="text-[9px] md:text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-[-2px]">Gerakan Ilmu Qobla 'Amal</p>
+                </div>
+            </div>
+            
+            <button onclick="openModal()" class="group flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-zinc-800 transition-all">
+                <i class="fa-solid fa-arrow-up-from-bracket group-hover:-translate-y-0.5 transition-transform"></i>
+                <span class="hidden sm:inline">Upload Gambar</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-10">
+        <!-- Stats & Filters -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-12">
+            <div class="flex-shrink-0">
+                <h2 class="text-3xl font-bold mb-2">Syirkah Bisnis Mastery</h2>
+
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-3xl">
+                <!-- Search Bar -->
+                <div class="relative flex-grow">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Cari nama gambar..." class="w-full pl-11 pr-4 py-3 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-black/5 transition-all text-sm">
+                </div>
+                
+
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden flex flex-col items-center justify-center py-32 border-2 border-dashed border-gray-100 rounded-3xl">
+            <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+                <i class="fa-solid fa-images text-gray-300 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold mb-2">No images uploaded yet</h3>
+            <p class="text-gray-400 mb-8">Start your self-hosted collection today.</p>
+            <button onclick="openModal()" class="text-black font-semibold underline underline-offset-4 hover:opacity-70 transition-opacity">
+                Upload your first image
+            </button>
+        </div>
+
+        <!-- Grid -->
+        <div id="photoGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <!-- Cards injected here -->
+        </div>
+    </main>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="fixed inset-0 z-[60] hidden bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-50">
+                <h2 class="text-lg font-bold">Upload New Asset</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-black transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="uploadForm" class="p-6 space-y-5">
+                <!-- Dropzone/File Selector -->
+                <div id="dropZone" class="drop-zone rounded-2xl p-6 text-center cursor-pointer">
+                    <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+                    <div id="previewContainer" class="hidden mb-3">
+                        <div id="multiPreviewGrid" class="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-2">
+                            <!-- Thumbnails will be injected here -->
+                        </div>
+                    </div>
+                    <div id="uploadPrompt">
+                        <div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-file-arrow-up text-gray-400 text-sm"></i>
+                        </div>
+                        <p class="text-xs font-semibold">Click to upload or drag & drop</p>
+                        <p class="text-[10px] text-gray-400 mt-1">PNG, JPG or WebP</p>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Nama Gambar</label>
+                    <input type="text" id="photoName" required placeholder="Contoh: Logo Bisnis" class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/5 transition-all text-sm">
+                </div>
+
+                <button type="submit" class="w-full bg-black text-white py-3.5 rounded-xl font-bold hover:bg-zinc-800 transition-all shadow-md active:scale-[0.98]">
+                    Publish to Gallery
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 z-[70] hidden bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-10 cursor-pointer" onclick="closePreview()">
+        <button onclick="event.stopPropagation(); closePreview();" class="absolute top-4 right-4 md:top-8 md:right-8 text-white/70 hover:text-white transition-all z-[80] p-4 cursor-pointer" aria-label="Close Preview">
+            <i class="fa-solid fa-xmark text-4xl"></i>
+        </button>
+        
+        <div class="relative max-w-5xl w-full h-full flex flex-col items-center justify-center gap-6" onclick="event.stopPropagation()">
+            <img id="previewImage" src="" alt="Full Preview" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl animate-in fade-in zoom-in duration-300">
+            
+            <div class="text-center text-white">
+                <h2 id="previewName" class="text-2xl font-bold mb-1"></h2>
+                <p id="previewMeta" class="text-white/60 text-sm font-medium tracking-wide uppercase"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div class="bg-black text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-white/10">
+            <i class="fa-solid fa-circle-check text-green-400"></i>
+            <span id="toastMessage" class="text-sm font-semibold"></span>
+        </div>
+    </div>
+
+    <script>
+        let photos = [];
+        let pendingUploads = [];
+        let searchQuery = '';
+        let selectedFiles = []; 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchPhotos();
+            setupDropZone();
+            document.getElementById('uploadForm').addEventListener('submit', handleUpload);
+        });
+
+        async function fetchPhotos() {
+            try {
+                const response = await fetch('api.php?action=list');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                photos = data || [];
+                renderGallery();
+            } catch (error) {
+                console.error('Error fetching:', error);
+            }
+        }
+
+        function handleSearch() {
+            searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            renderGallery();
+        }
+
+        async function downloadImage(url, filename) {
+            try {
+                if (url.startsWith('data:') || url.startsWith('blob:')) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename || 'asset-download.jpg';
+                    link.click();
+                    return;
+                }
+
+                const response = await fetch(url, { mode: 'cors' });
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename || 'asset-download.jpg';
+                document.body.appendChild(link);
+                link.click();
+                
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error('Download failed, opening in new tab instead.', error);
+                window.open(url, '_blank');
+            }
+        }
+
+        function setupDropZone() {
+            const dz = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            dz.addEventListener('click', () => fileInput.click());
+            dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('active'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('active'));
+            dz.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dz.classList.remove('active');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        }
+
+        async function handleFiles(files) {
+            const fileList = Array.from(files).filter(file => file.type.startsWith('image/'));
+            if (fileList.length > 0) {
+                const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+                selectedFiles = [];
+                
+                const grid = document.getElementById('multiPreviewGrid');
+                grid.innerHTML = '';
+                document.getElementById('previewContainer').classList.remove('hidden');
+                document.getElementById('uploadPrompt').classList.add('hidden');
+
+                for (let file of fileList) {
+                    let processedFile = file;
+                    if (file.size > MAX_SIZE) {
+                        showToast('Gambar terlalu besar, sedang mengompres...');
+                        processedFile = await compressImage(file);
+                    }
+                    selectedFiles.push(processedFile);
+                    
+                    // Show Preview
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = "w-full h-12 object-cover rounded border border-gray-100";
+                        grid.appendChild(img);
+                    };
+                    reader.readAsDataURL(processedFile);
+                }
+            }
+        }
+
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Limit resolution to prevent massive canvas
+                        const MAX_SIDE = 3840; 
+                        if (width > MAX_SIDE || height > MAX_SIDE) {
+                            if (width > height) {
+                                height *= MAX_SIDE / width;
+                                width = MAX_SIDE;
+                            } else {
+                                width *= MAX_SIDE / height;
+                                height = MAX_SIDE;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        canvas.toBlob((blob) => {
+                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { 
+                                type: 'image/webp' 
+                            });
+                            resolve(compressedFile);
+                        }, 'image/webp', 0.7); // 0.7 quality is usually plenty small
+                    };
+                };
+            });
+        }
+
+        function renderGallery() {
+            const grid = document.getElementById('photoGrid');
+            const emptyState = document.getElementById('emptyState');
+            
+            let filtered = [...photos];
+            
+            if (searchQuery) {
+                filtered = filtered.filter(p => 
+                    (p.name && p.name.toLowerCase().includes(searchQuery))
+                );
+            }
+
+            if (filtered.length === 0 && pendingUploads.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            
+            // Combine pending and existing photos
+            let html = '';
+            
+            // Render Pending Uploads First
+            pendingUploads.forEach(photo => {
+                html += `
+                    <div class="image-card group relative bg-white rounded-2xl overflow-hidden border border-zinc-100 flex flex-col h-full shadow-sm opacity-70">
+                        <div class="aspect-square overflow-hidden bg-gray-50 relative">
+                            <img src="${photo.tempUrl}" alt="Uploading..." class="w-full h-full object-cover blur-[2px]">
+                            <div class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center">
+                                <div class="w-full bg-white/20 rounded-full h-1.5 mb-2 overflow-hidden">
+                                    <div class="bg-white h-full transition-all duration-300" style="width: ${photo.progress}%"></div>
+                                </div>
+                                <span class="text-[10px] text-white font-bold uppercase tracking-wider">${photo.progress}% Mengunggah</span>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <h3 class="font-bold text-gray-400 text-sm leading-tight truncate">${photo.name}</h3>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Render Existing Photos
+            html += filtered.map(photo => `
+                <div class="image-card group relative bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col h-full shadow-sm hover:shadow-xl transition-all">
+                    <div class="aspect-square overflow-hidden bg-gray-50 relative cursor-zoom-in" onclick="openPreview('${photo.url}', '${photo.name}', '', '')">
+                        <img src="${photo.url}" alt="${photo.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300"></div>
+                    </div>
+                    <div class="p-4 flex flex-col flex-grow">
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] text-gray-400 font-medium">${formatDate(photo.upload_date)}</span>
+                            </div>
+                            <h3 class="font-bold text-gray-900 text-sm leading-tight truncate mb-0.5">${photo.name || 'Untitled Asset'}</h3>
+                        </div>
+                        
+                        <div class="mt-auto flex justify-between gap-2 pt-3 border-t border-gray-50">
+                            <button onclick="copyLink(window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/' + '${photo.url}')" title="Copy URL" class="p-2 rounded-xl hover:bg-gray-50 transition-colors flex-1 flex justify-center">
+                                <i class="fa-solid fa-link text-xs text-gray-400 hover:text-black"></i>
+                            </button>
+                            <button onclick="downloadImage('${photo.url}', 'asset-${photo.id}.jpg')" title="Download" class="p-2 rounded-xl hover:bg-gray-50 transition-colors flex-1 flex justify-center">
+                                <i class="fa-solid fa-download text-xs text-gray-400 hover:text-black"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            grid.innerHTML = html;
+        }
+
+        async function handleUpload(e) {
+            e.preventDefault();
+            const name = document.getElementById('photoName').value;
+
+            if (selectedFiles.length === 0) {
+                alert('Pilih gambar terlebih dahulu!');
+                return;
+            }
+
+            // Move to background processing
+            const filesToUpload = [...selectedFiles];
+            closeModal();
+
+            filesToUpload.forEach((file, index) => {
+                const tempId = Date.now() + index;
+                const tempUrl = URL.createObjectURL(file);
+                const pendingPhoto = {
+                    id: tempId,
+                    name: filesToUpload.length > 1 ? `${name} ${index + 1}` : name,
+                    tempUrl: tempUrl,
+                    progress: 0
+                };
+
+                pendingUploads.unshift(pendingPhoto);
+                renderGallery();
+
+                // Start Upload
+                const xhr = new XMLHttpRequest();
+                const formData = new FormData();
+                formData.append('name', pendingPhoto.name);
+                formData.append('files[]', file);
+
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        pendingPhoto.progress = Math.round((event.loaded / event.total) * 100);
+                        renderGallery();
+                    }
+                };
+
+                xhr.onload = async () => {
+                    if (xhr.status === 200) {
+                        const result = JSON.parse(xhr.responseText);
+                        if (!result.error) {
+                            pendingUploads = pendingUploads.filter(p => p.id !== tempId);
+                            URL.revokeObjectURL(tempUrl);
+                            showToast('Gambar berhasil diunggah!');
+                            await fetchPhotos(); // Refresh final gallery
+                        } else {
+                            alert('Gagal: ' + result.error);
+                            pendingUploads = pendingUploads.filter(p => p.id !== tempId);
+                            renderGallery();
+                        }
+                    }
+                };
+
+                xhr.onerror = () => {
+                    alert('Network error occurred during upload.');
+                    pendingUploads = pendingUploads.filter(p => p.id !== tempId);
+                    renderGallery();
+                };
+
+                xhr.open('POST', 'api.php?action=upload');
+                xhr.send(formData);
+            });
+        }
+
+        function openModal() {
+            document.getElementById('uploadModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('uploadForm').reset();
+            document.getElementById('previewContainer').classList.add('hidden');
+            document.getElementById('uploadPrompt').classList.remove('hidden');
+            selectedFiles = [];
+            document.body.style.overflow = 'auto';
+        }
+
+        async function deletePhoto(id) {
+            if (!confirm('Hapus aset ini?')) return;
+
+            try {
+                const response = await fetch(`api.php?action=delete&id=${id}`);
+                const result = await response.json();
+                if (result.error) throw new Error(result.error);
+                await fetchPhotos();
+            } catch (err) {
+                alert('Gagal menghapus: ' + err.message);
+            }
+        }
+
+        function copyLink(url) {
+            navigator.clipboard.writeText(url).then(() => showToast('Link berhasil disalin!'));
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('en-US', { 
+                year: 'numeric', month: 'short', day: 'numeric' 
+            });
+        }
+
+        // Preview Functions
+        function openPreview(url, name, company, category) {
+            const modal = document.getElementById('previewModal');
+            document.getElementById('previewImage').src = url;
+            document.getElementById('previewName').innerText = name || 'Untitled Asset';
+            document.getElementById('previewMeta').innerText = `${company} • ${category}`;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePreview() {
+            document.getElementById('previewModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Listen for ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePreview();
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
