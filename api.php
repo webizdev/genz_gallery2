@@ -50,14 +50,36 @@ switch ($action) {
         try {
             $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+            $sort = $_GET['sort'] ?? 'newest';
+            $filterDate = $_GET['date'] ?? '';
             $offset = ($page - 1) * $limit;
 
+            $whereClause = "";
+            $params = [];
+
+            if ($filterDate) {
+                $whereClause = " WHERE DATE(upload_date) = :filterDate";
+                $params[':filterDate'] = $filterDate;
+            }
+
             // Get total count
-            $countStmt = $pdo->query("SELECT COUNT(*) FROM photos");
+            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM photos" . $whereClause);
+            foreach ($params as $key => $val) $countStmt->bindValue($key, $val);
+            $countStmt->execute();
             $total = $countStmt->fetchColumn();
 
+            // Determine sort order
+            $orderBy = "id DESC"; // default newest
+            switch ($sort) {
+                case 'oldest': $orderBy = "id ASC"; break;
+                case 'az': $orderBy = "name ASC"; break;
+                case 'za': $orderBy = "name DESC"; break;
+            }
+
             // Get paginated results
-            $stmt = $pdo->prepare("SELECT * FROM photos ORDER BY id DESC LIMIT :limit OFFSET :offset");
+            $sql = "SELECT * FROM photos" . $whereClause . " ORDER BY " . $orderBy . " LIMIT :limit OFFSET :offset";
+            $stmt = $pdo->prepare($sql);
+            foreach ($params as $key => $val) $stmt->bindValue($key, $val);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();

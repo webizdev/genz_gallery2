@@ -88,18 +88,40 @@
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-12">
             <div class="flex-shrink-0">
                 <h2 class="text-3xl font-bold mb-2">Syirkah Bisnis Mastery</h2>
-
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-3xl">
+            <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-4xl">
                 <!-- Search Bar -->
                 <div class="relative flex-grow">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                     <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Cari nama gambar..." class="w-full pl-11 pr-4 py-3 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-black/5 transition-all text-sm">
                 </div>
                 
+                <!-- Filters Group -->
+                <div class="flex gap-2">
+                    <div class="relative">
+                        <select id="sortSelect" onchange="handleFilterChange()" class="appearance-none pl-10 pr-10 py-3 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-black/5 transition-all text-sm font-medium cursor-pointer">
+                            <option value="newest">Terbaru</option>
+                            <option value="oldest">Terlama</option>
+                            <option value="az">Nama (A-Z)</option>
+                            <option value="za">Nama (Z-A)</option>
+                        </select>
+                        <i class="fa-solid fa-sort absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
+                    </div>
 
+                    <div class="relative">
+                        <input type="date" id="dateFilter" onchange="handleFilterChange()" class="pl-10 pr-4 py-3 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-black/5 transition-all text-sm font-medium cursor-pointer">
+                        <i class="fa-solid fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <!-- Counter & Info -->
+        <div id="galleryStats" class="mb-6 flex items-center justify-between">
+            <p id="itemCount" class="text-xs text-gray-400 font-medium"></p>
+            <button id="resetBtn" onclick="resetFilters()" class="hidden text-xs text-black font-bold hover:underline">Reset Filter</button>
         </div>
 
         <!-- Empty State -->
@@ -196,10 +218,13 @@
         let photos = [];
         let pendingUploads = [];
         let searchQuery = '';
+        let sortOrder = 'newest';
+        let filterDate = '';
         let selectedFiles = []; 
         let currentPage = 1;
         let totalPages = 1;
-        const itemsPerPage = 10;
+        let totalRecords = 0;
+        const itemsPerPage = 12;
         let isLoading = false;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -213,7 +238,14 @@
             isLoading = true;
             
             try {
-                const response = await fetch(`api.php?action=list&page=${page}&limit=${itemsPerPage}`);
+                const url = new URL('api.php', window.location.origin + window.location.pathname);
+                url.searchParams.append('action', 'list');
+                url.searchParams.append('page', page);
+                url.searchParams.append('limit', itemsPerPage);
+                url.searchParams.append('sort', sortOrder);
+                if (filterDate) url.searchParams.append('date', filterDate);
+
+                const response = await fetch(url);
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
                 
@@ -225,6 +257,9 @@
                 
                 totalPages = data.pages || 1;
                 currentPage = data.page || 1;
+                totalRecords = data.total || 0;
+                
+                updateStats();
                 renderGallery();
             } catch (error) {
                 console.error('Error fetching:', error);
@@ -232,6 +267,43 @@
                 renderGallery();
             } finally {
                 isLoading = false;
+            }
+        }
+
+        function handleFilterChange() {
+            sortOrder = document.getElementById('sortSelect').value;
+            filterDate = document.getElementById('dateFilter').value;
+            fetchPhotos(1, true);
+            
+            const resetBtn = document.getElementById('resetBtn');
+            if (filterDate) {
+                resetBtn.classList.remove('hidden');
+            } else {
+                resetBtn.classList.add('hidden');
+            }
+        }
+
+        function handleSearch() {
+            searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            renderGallery();
+        }
+
+        function resetFilters() {
+            document.getElementById('dateFilter').value = '';
+            document.getElementById('sortSelect').value = 'newest';
+            filterDate = '';
+            sortOrder = 'newest';
+            document.getElementById('resetBtn').classList.add('hidden');
+            fetchPhotos(1, true);
+        }
+
+        function updateStats() {
+            const countEl = document.getElementById('itemCount');
+            if (totalRecords > 0) {
+                const currentCount = photos.length;
+                countEl.innerText = `Menampilkan ${currentCount} dari ${totalRecords} aset`;
+            } else {
+                countEl.innerText = 'Tidak ada aset ditemukan';
             }
         }
 
