@@ -22,10 +22,10 @@ function generateThumbnail($source_path, $target_path, $target_width = 400) {
     }
 
     switch ($type) {
-        case IMAGETYPE_JPEG: $source = imagecreatefromjpeg($source_path); break;
-        case IMAGETYPE_PNG: $source = imagecreatefrompng($source_path); break;
-        case IMAGETYPE_GIF: $source = imagecreatefromgif($source_path); break;
-        case IMAGETYPE_WEBP: $source = imagecreatefromwebp($source_path); break;
+        case IMAGETYPE_JPEG: $source = @imagecreatefromjpeg($source_path); break;
+        case IMAGETYPE_PNG: $source = @imagecreatefrompng($source_path); break;
+        case IMAGETYPE_GIF: $source = @imagecreatefromgif($source_path); break;
+        case IMAGETYPE_WEBP: $source = @imagecreatefromwebp($source_path); break;
         default: return false;
     }
 
@@ -55,20 +55,19 @@ switch ($action) {
             // Get total count
             $countStmt = $pdo->query("SELECT COUNT(*) FROM photos");
             $total = $countStmt->fetchColumn();
-            $pages = ceil($total / $limit);
 
-            // Get photos with limit and offset
-            $stmt = $pdo->prepare("SELECT * FROM photos ORDER BY upload_date DESC LIMIT :limit OFFSET :offset");
+            // Get paginated results
+            $stmt = $pdo->prepare("SELECT * FROM photos ORDER BY id DESC LIMIT :limit OFFSET :offset");
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
+            
             $photos = $stmt->fetchAll();
-
             echo json_encode([
                 'photos' => $photos,
+                'total' => $total,
                 'page' => $page,
-                'pages' => $pages,
-                'total' => $total
+                'pages' => ceil($total / $limit)
             ]);
         } catch (Exception $e) {
             echo json_encode(['error' => $e->getMessage()]);
@@ -76,9 +75,19 @@ switch ($action) {
         break;
 
     case 'upload':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['error' => 'Invalid method']);
+            break;
+        }
+
         $name = $_POST['name'] ?? 'Untitled';
         $upload_date = date('Y-m-d H:i:s');
         
+        if (!isset($_FILES['files'])) {
+            echo json_encode(['error' => 'No files uploaded']);
+            break;
+        }
+
         $upload_dir = 'uploads/';
         $thumb_dir = 'uploads/thumbs/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
