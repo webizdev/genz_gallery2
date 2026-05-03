@@ -408,7 +408,7 @@
             html += filtered.map(photo => `
                 <div class="image-card group relative bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col h-full shadow-sm hover:shadow-xl transition-all">
                     <div class="aspect-square overflow-hidden bg-gray-50 relative cursor-zoom-in" onclick="openPreview('${photo.url}', '${photo.name}', '', '')">
-                        <img src="${photo.url}" alt="${photo.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                        <img src="${photo.thumbnail_url || photo.url}" alt="${photo.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                         <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300"></div>
                     </div>
                     <div class="p-4 flex flex-col flex-grow">
